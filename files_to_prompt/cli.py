@@ -2,6 +2,8 @@ import os
 from fnmatch import fnmatch
 import tiktoken
 import click
+import jsmin
+import json
 
 def should_ignore(path, gitignore_rules):
     for rule in gitignore_rules:
@@ -26,11 +28,24 @@ def read_ftpignore():
             return [line.strip() for line in f if line.strip() and not line.startswith("#")]
     return []
 
+def minify_content(file_path, content):
+    ext = os.path.splitext(file_path)[1].lower()
+    if ext in ['.ts', '.tsx', '.mjs', '.js']:
+        return jsmin.jsmin(content)
+    elif ext == '.json':
+        try:
+            return json.dumps(json.loads(content), separators=(',', ':'))
+        except json.JSONDecodeError:
+            return content  # Return original content if JSON is invalid
+    return content  # Return original content for other file types
+
+
 def print_path(path, content, xml, output_file):
+    minified_content = minify_content(path, content)
     if xml:
-        print_as_xml(path, content, output_file)
+        print_as_xml(path, minified_content, output_file)
     else:
-        print_default(path, content, output_file)
+        print_default(path, minified_content, output_file)
 
 def print_default(path, content, output_file):
     def write_output(text):
@@ -60,7 +75,8 @@ def process_path(path, include_hidden, ignore_gitignore, gitignore_rules, ignore
     if os.path.isfile(path):
         try:
             with open(path, "r") as f:
-                print_path(path, f.read(), xml, output_file)
+                content = f.read()
+                print_path(path, content, xml, output_file)
         except UnicodeDecodeError:
             warning_message = f"Warning: Skipping file {path} due to UnicodeDecodeError"
             click.echo(click.style(warning_message, fg="red"), err=True)
@@ -82,7 +98,8 @@ def process_path(path, include_hidden, ignore_gitignore, gitignore_rules, ignore
                 file_path = os.path.join(root, file)
                 try:
                     with open(file_path, "r") as f:
-                        print_path(file_path, f.read(), xml, output_file)
+                        content = f.read()
+                        print_path(file_path, content, xml, output_file)
                 except UnicodeDecodeError:
                     warning_message = f"Warning: Skipping file {file_path} due to UnicodeDecodeError"
                     click.echo(click.style(warning_message, fg="red"), err=True)
@@ -105,10 +122,11 @@ def count_tokens(file_name):
 @click.option("--ignore-gitignore", is_flag=True, help="Ignore .gitignore files and include all files")
 @click.option("ignore_patterns", "--ignore", multiple=True, default=[], help="List of patterns to ignore")
 @click.option("--output", type=click.Path(), help="Output file to write the results to")
+@click.option("--force", is_flag=True, help="Overwrite the output file if it already exists")
 @click.option("--count-tokens", "count_tokens_path", type=click.Path(exists=True), help="Count the number of tokens in the specified file")
 @click.option("--xml", is_flag=True, help="Output in XML format suitable for Claude's long context window.")
 @click.version_option()
-def cli(paths, include_hidden, ignore_gitignore, ignore_patterns, output, count_tokens_path, xml):
+def cli(paths, include_hidden, ignore_gitignore, ignore_patterns, output, count_tokens_path, xml, force):
     """
     Takes one or more paths to files or directories and outputs every file,
     recursively, each one preceded with its filename.
@@ -124,8 +142,14 @@ def cli(paths, include_hidden, ignore_gitignore, ignore_patterns, output, count_
     ftpignore_rules = read_ftpignore()  # Always include these rules
     output_file = None
     if output:
-        output_file = open(output, 'w')
-
+        if os.path.exists(output) and not force:
+            click.echo(f"Error: The file '{output}' already exists. Use --force to overwrite.", err=True)
+            return
+        try:
+            output_file = open(output, 'w')
+        except IOError as e:
+            click.echo(f"Error: Unable to open output file '{output}'. {str(e)}", err=True)
+            return
     try:
         if xml:
             if output_file:
