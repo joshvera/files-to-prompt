@@ -16,6 +16,8 @@ This project uses PDM for dependency management and packaging.
 ### Install files-to-prompt
 
 ```bash
+git clone https://github.com/joshvera/files-to-prompt
+cd files-to-prompt
 pip install -e .
 ```
 
