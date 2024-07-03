@@ -11,10 +11,12 @@ For background on this project see [Building files-to-prompt entirely using Clau
 
 ## Installation
 
-Install this tool using `pip`:
+This project uses PDM for dependency management and packaging.
+
+### Install files-to-prompt
 
 ```bash
-pip install files-to-prompt
+pip install -e .
 ```
 
 ## Usage
@@ -127,20 +129,30 @@ Contents of file2.txt
 
 ## Development
 
-To contribute to this tool, first checkout the code. Then create a new virtual environment:
-
 ```bash
+git clone https://github.com/simonw/files-to-prompt.git
 cd files-to-prompt
-python -m venv venv
-source venv/bin/activate
+pdm install
+eval $(pdm venv activate)
 ```
 
-Now install the dependencies and test dependencies:
+### Installing PDM
+
+Install PDM if you haven't already. For detailed installation instructions, visit the [PDM installation guide](https://pdm-project.org/en/latest/#recommended-installation-method).
+
+TLDR: You can install PDM quickly using the following command:
 
 ```bash
-pip install -e '.[test]'
+curl -sSL https://pdm-project.org/install-pdm.py | python3 -
 ```
 
+### Verifying PDM
+
+For instructions on how to safely download, verify, and install PDM, please refer to the [VERIFY-PDM.md](./VERIFY-PDM.md) file in this repository.
+
+**Important:** Always verify scripts before running them.
+
+### Running Tests
 To run the tests:
 
 ```bash
